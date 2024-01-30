@@ -24,12 +24,17 @@ class HS :
         self.break_point = (-1, -1)
         # self.price_target = self.compute_price_target()
 
-
+        # thời gian bắt đầu patterns
         self.start_i = -1 
+        # giá trị neck bắt đầu của patterns
         self.neck_start = -1 
+        # neck kết thúc patterns 
         self.neck_end = -1 
+        # slope của neckline 
         self.neck_slope = -1 
-        self.head_width = -1 
+        # chiều cao của p2 với neckline 
+        self.head_width = -1
+
         self.pattern_r2 = -1 
 
     # phân loại 
@@ -49,13 +54,15 @@ class HS :
     
 
 class HSRecognize  : 
-    def __init__(self, ys, w) -> None:
-        self.ys = ys.values
+    def __init__(self, data : pd.Series , w : int) -> None:
+        self.data = np.array(data.values)
         self.w = w 
+        self.data_label = np.array(data.index)
+
     '''
     - Hàm dùng để show ra đồ thị 
     '''
-    def show(self, pat,data) : 
+    def show(self, pat : list, data : pd.Series) : 
         plt.style.use('dark_background')
         fig = plt.gcf()
         ax = fig.gca()
@@ -78,18 +85,43 @@ class HSRecognize  :
         
         ax.text(x,y, f"BTC-USDT 1H ({idx[pat.start_i].strftime('%Y-%m-%d %H:%M')} - {idx[pat.break_point[0]].strftime('%Y-%m-%d %H:%M')})", color='white', fontsize='xx-large')
         plt.show()
+
     ''' 
     - Hàm dùng để trả về lợi nhuận 
     '''
-    def pattern_return (self) : 
-        pass
+    def pattern_return (self, data : np.array, pat : HS, percent : bool ) : 
+        entry_p = pat.break_point[1]
+        entry_i = pat.break_point[0]
+        stop_p = pat.r_shoulder
+        target_price = 0
+        if pat.is_Top() : 
+            target_price = pat.neck_end - pat.compute_price_target()
+        else : 
+            target_price = pat.neck_end + pat.compute_neckline_slope()
+
+        exit_p = -1
+        for i in range(pat.head_width) : 
+            if entry_p + i >= len(data) : return np.nan
+
+            exit_p = data[entry_i + i]
+
+            if pat.is_Top() and (exit_p < target_price or exit_p > stop_p) : break
+            if not pat.is_Top() and (exit_p > target_price or exit_p < stop_p) : break 
+
+        if pat.is_Top() : 
+            if percent :  return (entry_p - exit_p) / entry_p 
+            else : return entry_p -  exit_p 
+        else :
+            if percent : return (exit_p - entry_p) / entry_p
+            else : return exit_p - entry_p
+    
     
     '''
     - Hàm dùng để duyệt và tìm kiếm patterns
     - Trả về đối tượng lớp patterns 
     '''
     def find_hs_pattern(self) : 
-        rw = RollingWindow(self.ys, self.w, False)
+        rw = RollingWindow(self.data, self.w, False)
         tops_point = rw.find_regional_locals_max()
         bottoms_point = rw.find_regional_locals_min()
 
@@ -103,14 +135,14 @@ class HSRecognize  :
         hs_bot_alter = True
 
         
-        for i in range(len(self.ys)) : 
+        for i in range(len(self.data)) : 
             
-            if [i, self.ys[i]] in tops_point : 
+            if [i, self.data[i]] in tops_point : 
                 curr_extreme.append(i)
                 type_extreme.append(1)
                 top_lock = False
 
-            if [i, self.ys[i]] in bottoms_point : 
+            if [i, self.data[i]] in bottoms_point : 
                 curr_extreme.append(i)
                 type_extreme.append(-1)
                 bottom_lock = False
@@ -158,7 +190,7 @@ class HSRecognize  :
     '''
     - Hàm kiểm tra điều kiện của top patterns 
     '''
-    def check_top_hs(self, extreme, i) : 
+    def check_top_hs(self, extreme : list, i : int) : 
         p1 = extreme[0]
         t1 = extreme[1]
         p2 = extreme[2]
@@ -166,32 +198,32 @@ class HSRecognize  :
 
         if i - t2 < 2 : return None 
 
-        p3 = t2 + self.ys[t2 + 1 : i].argmax() + 1
+        p3 = t2 + self.data[t2 + 1 : i].argmax() + 1
 
-        if self.ys[p2] <= max(self.ys[p1], self.ys[p3]) : return None 
+        if self.data[p2] <= max(self.data[p1], self.data[p3]) : return None 
 
-        r_mid = 0.5 * (self.ys[p3] + self.ys[t2])
-        l_mid = 0.5 * (self.ys[p1] + self.ys[t1])
-        if self.ys[p1] < r_mid or self.ys[p3] < l_mid : return None 
+        r_mid = 0.5 * (self.data[p3] + self.data[t2])
+        l_mid = 0.5 * (self.data[p1] + self.data[t1])
+        if self.data[p1] < r_mid or self.data[p3] < l_mid : return None 
 
         if p3 - p2 > 2.5 * (p2 - p1) or p2 - p1 > 2.5 * (p3 - p2) : return None  
 
-        neck_slope = (self.ys[t2] - self.ys[t1]) / (t2 - t1)
+        neck_slope = (self.data[t2] - self.data[t1]) / (t2 - t1)
 
-        neck_val = self.ys[t1] + (i - t1) * neck_slope 
+        neck_val = self.data[t1] + (i - t1) * neck_slope 
 
-        if self.ys[i] > neck_val : return None 
+        if self.data[i] > neck_val : return None 
 
         head_width = t2 - t1 
         pat_start  =  -1 
         neck_start = -1 
 
         for j in range(1, head_width ) : 
-            neck = self.ys[t1] + (p1 - j - t1) * neck_slope
+            neck = self.data[t1] + (p1 - j - t1) * neck_slope
 
             if p1 - j < 0 : return None 
 
-            if self.ys[p1 - j] < neck : 
+            if self.data[p1 - j] < neck : 
                 pat_start = p1 - j 
                 neck_start = neck 
 
@@ -199,15 +231,15 @@ class HSRecognize  :
 
         res = HS()
 
-        res.l_shoulder = (p1, self.ys[p1])
-        res.head = (p2, self.ys[p2])
-        res.r_shoulder = (p3, self.ys[p3])
-        res.l_armpit = (t1, self.ys[t1])
-        res.r_armpit = (t2, self.ys[t2])
+        res.l_shoulder = (p1, self.data[p1])
+        res.head = (p2, self.data[p2])
+        res.r_shoulder = (p3, self.data[p3])
+        res.l_armpit = (t1, self.data[t1])
+        res.r_armpit = (t2, self.data[t2])
         
         res.start_i = pat_start
         res.neck_start = neck_start
-        res.break_point = (i, self.ys[i])
+        res.break_point = (i, self.data[i])
         res.neck_slope = neck_slope
         res.neck_end = neck_val 
         res.head_width = head_width 
@@ -216,7 +248,7 @@ class HSRecognize  :
     '''
     - Hàm kiểm tra điều kiện của bottom patterns 
     '''
-    def check_bottom_hs(self, extreme, i) : 
+    def check_bottom_hs(self, extreme: list, i : int) : 
         p1 = extreme[0]
         t1 = extreme[1]
         p2 = extreme[2]
@@ -224,32 +256,32 @@ class HSRecognize  :
 
         if i - t2 < 2 : return None 
 
-        p3 = t2 + self.ys[t2 + 1 : i].argmin() + 1
+        p3 = t2 + self.data[t2 + 1 : i].argmin() + 1
 
-        if self.ys[p2] >= min(self.ys[p1], self.ys[p3]) : return None 
+        if self.data[p2] >= min(self.data[p1], self.data[p3]) : return None 
 
-        r_mid = 0.5 * (self.ys[p3] + self.ys[t2])
-        l_mid = 0.5 * (self.ys[p1] + self.ys[t1])
-        if self.ys[p1] > r_mid or self.ys[p3] > l_mid : return None 
+        r_mid = 0.5 * (self.data[p3] + self.data[t2])
+        l_mid = 0.5 * (self.data[p1] + self.data[t1])
+        if self.data[p1] > r_mid or self.data[p3] > l_mid : return None 
 
         if p3 - p2 > 2.5 * (p2 - p1) or p2 - p1 > 2.5 * (p3 - p2) : return None  
 
-        neck_slope = (self.ys[t2] - self.ys[t1]) / (t2 - t1)
+        neck_slope = (self.data[t2] - self.data[t1]) / (t2 - t1)
 
-        neck_val = self.ys[t1] + (i - t1) * neck_slope 
+        neck_val = self.data[t1] + (i - t1) * neck_slope 
 
-        if self.ys[i] < neck_val : return None 
+        if self.data[i] < neck_val : return None 
 
         head_width = t2 - t1 
         pat_start  =  -1 
         neck_start = -1 
 
         for j in range(1, head_width ) : 
-            neck = self.ys[t1] + (p1 - j - t1) * neck_slope
+            neck = self.data[t1] + (p1 - j - t1) * neck_slope
 
             if p1 - j < 0 : return None 
 
-            if self.ys[p1 - j] > neck : 
+            if self.data[p1 - j] > neck : 
                 pat_start = p1 - j 
                 neck_start = neck 
 
@@ -257,14 +289,14 @@ class HSRecognize  :
         
         res = HS()
 
-        res.l_shoulder = (p1, self.ys[p1])
-        res.head = (p2, self.ys[p2])
-        res.r_shoulder = (p3, self.ys[p3])
-        res.l_armpit = (t1, self.ys[t1])
-        res.r_armpit = (t2, self.ys[t2])
+        res.l_shoulder = (p1, self.data[p1])
+        res.head = (p2, self.data[p2])
+        res.r_shoulder = (p3, self.data[p3])
+        res.l_armpit = (t1, self.data[t1])
+        res.r_armpit = (t2, self.data[t2])
         
         res.neck_start = neck_start
-        res.break_point = (i, self.ys[i])
+        res.break_point = (i, self.data[i])
         res.neck_slope = neck_slope
         res.neck_end = neck_val 
         res.head_width = head_width 
@@ -273,7 +305,7 @@ class HSRecognize  :
 
 
 if __name__ == '__main__' : 
-    data = pd.read_csv('Data\meta_1.csv')
+    data = pd.read_csv('Data\BTCUSDT3600.csv')
     
     data['datetime'] = data['datetime'].astype('datetime64[s]')
     data = data.set_index('datetime')
@@ -281,5 +313,5 @@ if __name__ == '__main__' :
 
     hs = HSRecognize(data['close'],  6)
     t = hs.find_hs_pattern()
-    hs.show(data = data, pat = t[0][0])
+    hs.show(data  = data, pat = t[0][0])
    

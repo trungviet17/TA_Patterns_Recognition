@@ -1,9 +1,9 @@
 import matplotlib.pyplot as plt
-
+import numpy as np
 
 class RollingWindow: 
-    def __init__(self, ys, w, pflag):
-        self.ys = ys
+    def __init__(self, data : np.array, w : int, pflag : int):
+        self.data = data
         self.w = w
         self.pflag = pflag
        
@@ -22,16 +22,16 @@ class RollingWindow:
 
     def find_regional_locals_max(self):
         tops = []
-        l = len(self.ys)
+        l = len(self.data)
         for t in range(self.w + 1, l - self.w + 1): 
-            if self.ys[t] > max(self.ys[t - self.w: t]) and self.ys[t] > max(self.ys[t+1 : t + self.w + 1]): 
-                tops.append([t, self.ys[t]])
+            if self.data[t] > max(self.data[t - self.w: t]) and self.data[t] > max(self.data[t+1 : t + self.w + 1]): 
+                tops.append([t, self.data[t]])
         return tops
 
     def find_regional_locals_min(self):     
         bottoms = []
-        l = len(self.ys)
+        l = len(self.data)
         for t in range(self.w + 1, l - self.w + 1):
-            if self.ys[t] < min(self.ys[t - self.w: t]) and self.ys[t] < min(self.ys[t+1 : t + self.w + 1]):        
-                bottoms.append([t, self.ys[t]])
+            if self.data[t] < min(self.data[t - self.w: t]) and self.data[t] < min(self.data[t+1 : t + self.w + 1]):        
+                bottoms.append([t, self.data[t]])
         return bottoms
