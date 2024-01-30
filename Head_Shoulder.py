@@ -52,8 +52,14 @@ class HS :
     def compute_neckline_slope (self) : 
         return (self.r_armpit[1] - self.l_armpit[1]) / (self.r_armpit[0] - self.l_armpit[0])
     
+'''
+- Class nhận diện HS patterns : 
+    - Đầu vào : Nhận vào data, w
+    - Đầu ra : 
+        Tìm được các list pattern HS kiểu top hoặc bottom 
 
-class HSRecognize  : 
+'''
+class HS_Recognize  : 
     def __init__(self, data : pd.Series , w : int) -> None:
         self.data = np.array(data.values)
         self.w = w 
@@ -89,10 +95,10 @@ class HSRecognize  :
     ''' 
     - Hàm dùng để trả về lợi nhuận 
     '''
-    def pattern_return (self, data : np.array, pat : HS, percent : bool ) : 
+    def pattern_return ( data : np.array, pat : HS, percent : bool =  False ) : 
         entry_p = pat.break_point[1]
         entry_i = pat.break_point[0]
-        stop_p = pat.r_shoulder
+        stop_p = pat.r_shoulder[1]
         target_price = 0
         if pat.is_Top() : 
             target_price = pat.neck_end - pat.compute_price_target()
@@ -101,7 +107,7 @@ class HSRecognize  :
 
         exit_p = -1
         for i in range(pat.head_width) : 
-            if entry_p + i >= len(data) : return np.nan
+            if entry_p + i >= len(data) : return 0
 
             exit_p = data[entry_i + i]
 
@@ -304,14 +310,97 @@ class HSRecognize  :
         return res
 
 
-if __name__ == '__main__' : 
-    data = pd.read_csv('Data\BTCUSDT3600.csv')
+
+"""
+- Class đùng để test chiến lược dựa trên HS pattern 
+    - Đầu vào : Nhận vào data, pattern, w - giới hạn từ 1 ->  w 
+    - Đầu ra : 
+        Đánh giá số lượng pattern ứng với mỗi w 
+        Đánh giá tổng,  trung bình lợi nhuận với mỗi w xác định 
+        Win rate với mỗi w
+"""
+class HS_Testing : 
+    def __init__(self, data : pd.Series , w : int ) :
+        self.data = data
+        self.data_label = data.index
+        self.w_range = [i for i in range(2, w + 1)]
+        self.hs_top_list = []        
+        self.hs_bottom_list = []
+        self.find_pattern()
+
+    # tìm tất cả pattern với giới hạn w cho trước 
+    def find_pattern(self) : 
+        for i in self.w_range : 
+            tmp_hs = HS_Recognize(self.data, i)
+            hs_identify = tmp_hs.find_hs_pattern()
+            self.hs_top_list.append(hs_identify[0])
+            self.hs_bottom_list.append(hs_identify[1])
+
+    def number_of_pattern(self, show : bool = True) : 
+        
+        total_pattern = [len(self.hs_bottom_list[i]) + len(self.hs_top_list[i]) for i in range(len(self.hs_bottom_list))]
+        if not show : 
+            print(total_pattern)
+        else : 
+            self.show(total_pattern,  "The width of RollingWindow", "The number of pattern")
+        
+
+    def total_return(self, show : bool = True) : 
+        total = []
+        for i in range(len(self.hs_top_list)) : 
+            total_bot =  (sum([HS_Recognize.pattern_return(np.array(self.data.values), j) for j in self.hs_bottom_list[i]]))
+            total_top =  (sum([HS_Recognize.pattern_return(np.array(self.data.values), j) for j in self.hs_top_list[i]]))
+            total.append(total_bot + total_top)
+
+        if show : 
+            self.show(total, xlab = "The width of RollingWindow", ylab="Sum return")
+        else :  print(total)
+
+    def average_return(self, show : bool = True) : 
+        avg = []
+        for i in range(len(self.hs_top_list)) : 
+            total_bot =  (sum([HS_Recognize.pattern_return(data =np.array(self.data.values), pat = j) for j in self.hs_bottom_list[i]]))
+            total_top =  (sum([HS_Recognize.pattern_return(data = np.array(self.data.values), pat = j) for j in self.hs_top_list[i]]))
+            avg.append((total_bot + total_top) / (len(self.hs_bottom_list[i]) + len(self.hs_top_list[i])))
+        if show : 
+            self.show(avg, xlab= "The width of RollingWindow", ylab = "Average return")
+        else : print(avg)
+
+    def win_rate_percent(self, show : bool = True) : 
+        win_rate = []
+        for i in range(len(self.hs_top_list)) : 
+            count = 0
+            for j in self.hs_bottom_list[i] : 
+                if HS_Recognize.pattern_return(np.array(self.data.values), j) > 0 : count += 1
+            for j in self.hs_top_list[i] : 
+                if  HS_Recognize.pattern_return(np.array(self.data.values), j) > 0 : count += 1 
+            win_rate.append(count / (len(self.hs_bottom_list[i]) + len(self.hs_top_list[i])))
+        
+        if show : 
+            self.show(win_rate, xlab= "The width of RollingWindow", ylab  = "Win Rate")
+        else : print(win_rate)
+
+    def show(self, data : list, xlab : str, ylab : str) : 
+        plt.figure(figsize= (14, 7))
+        plt.bar(self.w_range, data, color = 'green')
+        plt.xlabel(xlab)
+        plt.ylabel(ylab)
+        plt.show()
+
+
+
+
+
+
+
+
+# if __name__ == '__main__' : 
+#     data = pd.read_csv('Data\BTCUSDT3600.csv')
     
-    data['datetime'] = data['datetime'].astype('datetime64[s]')
-    data = data.set_index('datetime')
+#     data['datetime'] = data['datetime'].astype('datetime64[s]')
+#     data = data.set_index('datetime')
 
 
-    hs = HSRecognize(data['close'],  6)
-    t = hs.find_hs_pattern()
-    hs.show(data  = data, pat = t[0][0])
+#     hs = HS_Testing(data['close'],  40)
+#     hs.win_rate_percent()
    

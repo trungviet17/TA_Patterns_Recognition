@@ -17,7 +17,6 @@ class RollingWindow:
         plt.xlabel("Price")
         plt.ylabel("Time")
 
-        plt.xticks(['2024-01-12 03:30:00', '2023-01-04 01:30:00'])
         plt.show()
 
     def find_regional_locals_max(self):
