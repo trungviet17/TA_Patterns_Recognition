@@ -44,8 +44,8 @@ class Trend_line:
         resist_pivot = (high - line_p).argmax()
         
 
-        support_line = Trend_line.optimize_slope(True,sup_pivot, slope, data)
-        resist_line = Trend_line.optimize_slope(False, resist_pivot, slope, data)
+        support_line = Trend_line.optimize_slope(True,sup_pivot, slope, close)
+        resist_line = Trend_line.optimize_slope(False, resist_pivot, slope, close)
 
         return (support_line, resist_line)
 
@@ -156,8 +156,9 @@ class Trend_line:
         data['support'] = support_slope
         data['resist'] = resist_slope
 
-        plt.style.use('dark_background')
-        fig, ax1 = plt.subplots()
+        
+        fig, ax1 = plt.subplots(figsize = (14, 7))
+        
         ax2 = ax1.twinx()
         data['close'].plot(ax=ax1)
         data['support'].plot(ax=ax2, label='Support Slope', color='green')
@@ -168,9 +169,9 @@ class Trend_line:
 
 
 
-if __name__ == '__main__' : 
-    data = pd.read_csv('Data\BTCUSDT3600.csv')
-    data['datetime'] = data['datetime'].astype('datetime64[s]')
-    data = data.set_index('datetime')
+# if __name__ == '__main__' : 
+#     data = pd.read_csv('Data\BTCUSDT3600.csv')
+#     data['datetime'] = data['datetime'].astype('datetime64[s]')
+#     data = data.set_index('datetime')
 
-    Trend_line.show_all_trendline_slope(data, lookback = 30)
+#     Trend_line.show_all_trendline_slope(data, lookback = 30)

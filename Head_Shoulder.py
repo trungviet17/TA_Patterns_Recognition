@@ -68,7 +68,7 @@ class HS_Recognize  :
     '''
     - Hàm dùng để show ra đồ thị 
     '''
-    def show(self, pat : list, data : pd.Series) : 
+    def show(self, pat : HS, data : pd.Series) : 
         plt.style.use('dark_background')
         fig = plt.gcf()
         ax = fig.gca()
@@ -89,7 +89,7 @@ class HS_Recognize  :
         else:
             y = pat.head[1] - pat.compute_price_target() * 1.25
         
-        ax.text(x,y, f"BTC-USDT 1H ({idx[pat.start_i].strftime('%Y-%m-%d %H:%M')} - {idx[pat.break_point[0]].strftime('%Y-%m-%d %H:%M')})", color='white', fontsize='xx-large')
+        #ax.text(x,y, f"BTC-USDT 1H ({idx[pat.start_i].strftime('%Y-%m-%d %H:%M')} - {idx[pat.break_point[0]].strftime('%Y-%m-%d %H:%M')})", color='white', fontsize='xx-large')
         plt.show()
 
     ''' 
@@ -381,7 +381,7 @@ class HS_Testing :
         else : print(win_rate)
 
     def show(self, data : list, xlab : str, ylab : str) : 
-        plt.style.use('dark_background')
+    
         plt.figure(figsize= (14, 7))
         plt.bar(self.w_range, data, color = 'green')
         plt.xlabel(xlab)
