@@ -381,6 +381,7 @@ class HS_Testing :
         else : print(win_rate)
 
     def show(self, data : list, xlab : str, ylab : str) : 
+        plt.style.use('dark_background')
         plt.figure(figsize= (14, 7))
         plt.bar(self.w_range, data, color = 'green')
         plt.xlabel(xlab)
